@@ -36,7 +36,7 @@ export function PatientSidebar({ activeView, onViewChange }: PatientSidebarProps
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
           <Heart className="h-4 w-4 text-sidebar-primary-foreground" />
         </div>
-        <span className="text-lg font-bold text-sidebar-foreground">MedVault</span>
+        <span className="text-lg font-bold text-sidebar-foreground">MedSync</span>
       </div>
 
       <Separator className="bg-sidebar-border" />
@@ -50,7 +50,7 @@ export function PatientSidebar({ activeView, onViewChange }: PatientSidebarProps
             className={cn(
               "justify-start gap-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               activeView === item.key &&
-                "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             )}
             onClick={() => onViewChange(item.key)}
           >
