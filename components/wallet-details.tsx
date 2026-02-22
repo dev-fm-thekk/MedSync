@@ -30,7 +30,7 @@ export function WalletDetails() {
   const wallet = wallets[0] // Use the first (default) wallet
   const displayAddress = wallet?.address || "No wallet connected"
   const chainId = wallet?.chainId || "unknown"
-  const walletId = wallet?.id || "unknown"
+  const walletId = wallet?.address || "unknown"
 
   // Map chain ID to network name
   const getNetworkName = (chainId: number | string): string => {
