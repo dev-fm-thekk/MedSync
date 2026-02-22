@@ -1,168 +1,85 @@
 "use client"
 
 import { useState } from "react"
-import { useAuth } from "@/lib/auth-context"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { ShieldCheck, Wallet, Loader2, AlertCircle, Heart } from "lucide-react"
+import { useMedSyncAuth } from "@/hooks/use-medsync-auth"
 
-export function LoginPage() {
-  const { login, connectWallet } = useAuth()
+export default function LoginPage() {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isWalletLoading, setIsWalletLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [otp, setOtp] = useState("")
+  const [showOtp, setShowOtp] = useState(false) // Added for better UX flow
+  const { sendOtp, verifyOtp, isAuthenticated, user } = useMedSyncAuth()
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-    try {
-      await login(email, password)
-    } catch {
-      setError("Invalid credentials. Try patient@health.io or doctor@health.io")
-    } finally {
-      setIsLoading(false)
-    }
+  if (isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-slate-600">Logged in as</p>
+          <p className="font-semibold text-slate-900">{user?.email?.address}</p>
+        </div>
+      </div>
+    )
   }
 
-  async function handleWalletConnect() {
-    setError("")
-    setIsWalletLoading(true)
-    try {
-      await connectWallet()
-    } catch {
-      setError("Failed to connect wallet. Please try again.")
-    } finally {
-      setIsWalletLoading(false)
-    }
+  const handleSendOtp = async () => {
+    await sendOtp(email)
+    setShowOtp(true)
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="flex w-full max-w-5xl items-center gap-16">
-        {/* Left branding section */}
-        <div className="hidden flex-1 lg:block">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-              <Heart className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold text-foreground">MedSync</span>
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-slate-200 bg-white p-8 shadow-xl md:p-12">
+        
+        {/* Header Section */}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome to MedSync</h1>
+          <p className="mt-2 text-sm text-slate-500">Secure access to your healthcare dashboard</p>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-6">
+          {/* Email Input Group */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none text-slate-700">Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              className="flex h-11 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <button
+              onClick={handleSendOtp}
+              className="mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition-all hover:bg-blue-700 active:scale-[0.98]"
+            >
+              {showOtp ? "Resend Code" : "Send Login Code"}
+            </button>
           </div>
-          <h1 className="text-4xl font-bold leading-tight text-foreground text-balance">
-            Secure, decentralized healthcare data management.
-          </h1>
-          <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-            Your medical records, protected by blockchain technology. Share securely with healthcare providers using time-bound, auditable access controls.
-          </p>
-          <div className="mt-8 flex flex-col gap-4">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              <span>End-to-end encrypted medical records</span>
-            </div>
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <Wallet className="h-5 w-5 text-primary" />
-              <span>MetaMask wallet authentication</span>
-            </div>
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <ShieldCheck className="h-5 w-5 text-accent" />
-              <span>Immutable audit trail on-chain</span>
-            </div>
+
+          <hr className="border-slate-100" />
+
+          {/* OTP Input Group - Conditioned for cleaner UI */}
+          <div className={`space-y-2 transition-all duration-300 ${showOtp ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+            <label className="text-sm font-medium leading-none text-slate-700">Verification Code</label>
+            <input
+              type="text"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="Enter 6-digit code"
+              className="flex h-11 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            />
+            <button
+              onClick={() => verifyOtp(otp)}
+              className="mt-2 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow transition-all hover:bg-slate-800 active:scale-[0.98] disabled:bg-slate-300"
+              disabled={!otp}
+            >
+              Verify & Login
+            </button>
           </div>
         </div>
 
-        {/* Login card */}
-        <div className="w-full max-w-md">
-          <div className="mb-6 flex items-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-              <Heart className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">MedVault</span>
-          </div>
-
-          <Card className="border-border shadow-lg">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl text-card-foreground">Sign in to your account</CardTitle>
-              <CardDescription>Use your email or connect a Web3 wallet</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="patient@health.io"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter any password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-
-              <div className="flex items-center gap-4">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">OR</span>
-                <Separator className="flex-1" />
-              </div>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleWalletConnect}
-                disabled={isWalletLoading}
-              >
-                {isWalletLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connecting wallet...
-                  </>
-                ) : (
-                  <>
-                    <Wallet className="mr-2 h-4 w-4" />
-                    Connect with MetaMask
-                  </>
-                )}
-              </Button>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Demo: Use <strong>patient@health.io</strong> or <strong>doctor@health.io</strong> with any password.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Footer */}
+        <p className="text-center text-xs text-slate-400">
+          By continuing, you agree to our Terms of Service.
+        </p>
       </div>
     </div>
   )
