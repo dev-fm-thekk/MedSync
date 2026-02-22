@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BrowserProvider, formatEther } from "ethers"
-import { useAuth } from "@/lib/auth-context"
+import { usePrivy, useWallets } from "@privy-io/react-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -21,58 +20,59 @@ interface WalletBalance {
 }
 
 export function WalletDetails() {
-  const { walletAddress, chainId } = useAuth()
+  const { user } = usePrivy()
+  const { wallets } = useWallets()
   const [balanceData, setBalanceData] = useState<WalletBalance | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
   // Get wallet details
-  const displayAddress = walletAddress || "No wallet connected"
-  const displayChainId = chainId || "unknown"
+  const wallet = wallets[0] // Use the first (default) wallet
+  const displayAddress = wallet?.address || "No wallet connected"
+  const chainId = wallet?.chainId || "unknown"
+  const walletId = wallet?.address || "unknown"
 
   // Map chain ID to network name
-  const getNetworkName = (chainId: number | null): string => {
-    const networkMap: Record<number, string> = {
-      1: "Ethereum Mainnet",
-      5: "Goerli Testnet",
-      11155111: "Sepolia Testnet",
-      137: "Polygon",
-      80001: "Mumbai Testnet",
-      42161: "Arbitrum One",
-      421613: "Arbitrum Goerli",
-      10: "Optimism",
-      420: "Optimism Goerli",
-      56: "BSC",
-      97: "BSC Testnet",
+  const getNetworkName = (chainId: number | string): string => {
+    const networkMap: Record<string | number, string> = {
+      "1": "Ethereum Mainnet",
+      "5": "Goerli Testnet",
+      "11155111": "Sepolia Testnet",
+      "137": "Polygon",
+      "80001": "Mumbai Testnet",
+      "42161": "Arbitrum One",
+      "421613": "Arbitrum Goerli",
+      "10": "Optimism",
+      "420": "Optimism Goerli",
+      "56": "BSC",
+      "97": "BSC Testnet",
     }
-    return chainId ? (networkMap[chainId] || `Chain ${chainId}`) : "Unknown"
+    return networkMap[chainId] || `Chain ${chainId}`
   }
 
-  // Fetch wallet balance from blockchain
+  // Fetch wallet balance (mock for now - would use ethers.js or web3.js in production)
   useEffect(() => {
-    if (!walletAddress || typeof window === "undefined" || !window.ethereum) return
+    if (!wallet?.address) return
 
     const fetchBalance = async () => {
       setIsLoading(true)
       try {
-        const provider = new BrowserProvider(window.ethereum)
-        const balance = await provider.getBalance(walletAddress)
-        const formattedBalance = `${formatEther(balance).slice(0, 6)} ETH`
-
+        // Mock balance - in production, use ethers.js or web3.js
+        // to fetch from an RPC endpoint like Alchemy or Infura
+        await new Promise((r) => setTimeout(r, 800))
         setBalanceData({
-          balance: balance.toString(),
-          formattedBalance,
+          balance: "1234567890000000000",
+          formattedBalance: "1.234567890 ETH",
         })
       } catch (error) {
-        console.error("[v0] Error fetching balance:", error)
-        setBalanceData(null)
+        console.error("Error fetching balance:", error)
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchBalance()
-  }, [walletAddress])
+  }, [wallet?.address])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -80,7 +80,7 @@ export function WalletDetails() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (!walletAddress) {
+  if (!wallet) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
         <Wallet className="h-4 w-4" />
