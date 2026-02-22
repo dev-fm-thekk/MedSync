@@ -1,6 +1,7 @@
 // supabase/queries.ts
 // ✅ Uses the browser client — safe to call from Client Components
 
+import apiClient from "@/lib/api-client"
 import { createClient } from "./client"
 
 
@@ -66,5 +67,8 @@ export async function getProfile(
   console.log("[getProfile] data:", data)
 
   if (error || !data) return null
+
+  const nfts = await apiClient.getRecords(walletAddress);
+  console.log(nfts);
   return data as Profile
 }

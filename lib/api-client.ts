@@ -1,6 +1,6 @@
 /**
  * API Client
- * 
+ *
  * This service handles all HTTP requests to the backend API.
  * It provides type-safe methods for each endpoint with proper error handling.
  */
@@ -76,7 +76,9 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Unknown error" }));
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
@@ -86,7 +88,10 @@ class ApiClient {
   /**
    * Mint a medical record as an NFT
    */
-  async mintRecord(userId: string, request: MintRecordRequest): Promise<MintRecordResponse> {
+  async mintRecord(
+    userId: string,
+    request: MintRecordRequest,
+  ): Promise<MintRecordResponse> {
     try {
       const url = apiConfig.getFullUrl(apiConfig.endpoints.mintRecord(userId));
       const response = await fetch(url, {
@@ -110,7 +115,10 @@ class ApiClient {
   /**
    * Grant access to a doctor for a medical record
    */
-  async grantAccess(userId: string, request: GrantAccessRequest): Promise<GrantAccessResponse> {
+  async grantAccess(
+    userId: string,
+    request: GrantAccessRequest,
+  ): Promise<GrantAccessResponse> {
     try {
       const url = apiConfig.getFullUrl(apiConfig.endpoints.grantAccess(userId));
       const response = await fetch(url, {
@@ -131,14 +139,37 @@ class ApiClient {
     }
   }
 
+  async getRecords(walletAddress: string) {
+    try {
+      const ALCHEMY_API_KEY  = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+      console.log(ALCHEMY_API_KEY);
+      const res = await fetch(
+        `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${walletAddress}&withMetadata=true`,
+      );
+      const data = await res.json();
+      // data.ownedNfts -> array of NFTs with metadata, images, traits, etc.
+      return data
+    } catch (err) {
+      console.error(err);
+      return {
+        error: err instanceof Error ? err.message : "unexpected error",
+      };
+    }
+  }
   /**
    * Get a medical record (if authorized)
    */
-  async getRecord(tokenId: string, doctorAddress: string): Promise<GetRecordResponse> {
+  async getRecord(
+    tokenId: string,
+    doctorAddress: string,
+  ): Promise<GetRecordResponse> {
     try {
-      const url = apiConfig.getFullUrlWithQuery(apiConfig.endpoints.getRecord(tokenId), {
-        doctorAddress,
-      });
+      const url = apiConfig.getFullUrlWithQuery(
+        apiConfig.endpoints.getRecord(tokenId),
+        {
+          doctorAddress,
+        },
+      );
       const response = await fetch(url, {
         method: "GET",
         headers: {
