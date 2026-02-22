@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { WalletDetails } from "@/components/wallet-details"
 import {
   FileText,
   CalendarDays,
@@ -61,8 +62,8 @@ export function PatientSidebar({ activeView, onViewChange }: PatientSidebarProps
       </nav>
 
       {/* User section */}
-      <div className="border-t border-sidebar-border px-4 py-4">
-        <div className="flex items-center gap-3 mb-3">
+      <div className="border-t border-sidebar-border px-4 py-4 space-y-3">
+        <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
               {user?.name?.split(" ").map((n) => n[0]).join("") ?? "U"}
@@ -73,12 +74,14 @@ export function PatientSidebar({ activeView, onViewChange }: PatientSidebarProps
               {user?.name}
             </span>
             <span className="truncate text-xs text-sidebar-foreground/50">
-              {user?.walletAddress
-                ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`
-                : user?.email}
+              {user?.email}
             </span>
           </div>
         </div>
+        
+        {/* Wallet Details Button */}
+        <WalletDetails />
+        
         <Button
           variant="ghost"
           size="sm"

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context"
 import { mockAppointments } from "@/lib/mock-data"
 import { ScheduleView } from "./schedule-view"
 import { PatientDetailView } from "./patient-detail-view"
+import { WalletDetails } from "@/components/wallet-details"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Heart, LogOut, ArrowLeft } from "lucide-react"
@@ -46,7 +47,7 @@ export function DoctorDashboard() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-primary text-xs">MC</AvatarFallback>
@@ -54,6 +55,9 @@ export function DoctorDashboard() {
             <span className="hidden sm:inline text-sm font-medium text-card-foreground">
               {user?.name}
             </span>
+          </div>
+          <div className="hidden lg:block">
+            <WalletDetails />
           </div>
           <Button variant="ghost" size="sm" onClick={logout} className="gap-2 text-muted-foreground">
             <LogOut className="h-4 w-4" />

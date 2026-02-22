@@ -6,30 +6,29 @@ import { PatientDashboard } from "@/components/patient/patient-dashboard"
 import { DoctorDashboard } from "@/components/doctor/doctor-dashboard"
 
 export default function Home() {
-  // 1. Use the native Privy hook
   const { authenticated, ready, user } = usePrivy()
 
-  // 2. Handle the loading state while Privy initializes
+  // Handle loading state while Privy initializes
   if (!ready) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading MedSync...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-2">
+        <div className="flex items-center justify-center">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        </div>
+        <p className="text-sm text-muted-foreground">Initializing MedSync...</p>
       </div>
     )
   }
 
-  // 3. If not authenticated, show the login page
+  // If not authenticated, show the login page
   if (!authenticated) {
     return <LoginPage />
   }
 
-  /**
-   * 4. Role Selection Logic
-   * In a real app, you would fetch this from your Node.js backend 
-   * based on user.id or check user.customMetadata if set via Privy.
-   */
-  const userRole = user?.customMetadata?.role || "patient"
+  // Get user role from Privy custom metadata
+  const userRole = user?.customMetadata?.role as string | undefined || "patient"
 
+  // Route to appropriate dashboard
   if (userRole === "doctor") {
     return <DoctorDashboard />
   }
