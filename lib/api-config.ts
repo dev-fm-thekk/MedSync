@@ -8,7 +8,7 @@
  */
 
 // Get base URL from environment or default to localhost
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
 export const apiConfig = {
   baseURL: API_BASE_URL,

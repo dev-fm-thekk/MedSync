@@ -25,7 +25,7 @@ interface GrantedAccess {
 
 export function AccessManagement() {
   const { user, walletAddress } = useAuth()
-  const { grantAccess, grantAccess: grantAccessState, setPatientSignature } = useApi()
+  const { grantAccess, grantAccessState, setPatientSignature } = useApi()
   
   const [showGrantDialog, setShowGrantDialog] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)

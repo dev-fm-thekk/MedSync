@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  connectWallet: () => Promise<void>
+  connectWallet: () => Promise<any>
   logout: () => void
   walletAddress: string | null
   chainId: number | null

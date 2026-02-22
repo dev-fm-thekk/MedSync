@@ -109,7 +109,7 @@ export function useApi() {
 
     // Grant access
     grantAccess,
-    grantAccess: grantAccessState,
+    grantAccessState,
 
     // Get record
     getRecord,
