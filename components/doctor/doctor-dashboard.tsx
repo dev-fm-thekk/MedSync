@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
+import { apiConfig } from "@/lib/api-config"
 import { mockAppointments } from "@/lib/mock-data"
 import { ScheduleView } from "./schedule-view"
 import { PatientDetailView } from "./patient-detail-view"
@@ -26,7 +27,7 @@ export function DoctorDashboard() {
   const selectedAppointment = selectedPatientId
     ? doctorAppointments.find((a) => a.patientId === selectedPatientId)
     : null
-    
+
   const handleFileChange = (file: File | null) => {
     if (!file) return
     setSelectedFile(file)
@@ -43,22 +44,38 @@ export function DoctorDashboard() {
 
   const handleUpload = async () => {
     if (!selectedFile) return
+    const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
+    const uploadPdfUrl = apiConfig.n8nRagUploadPdfUrl?.trim()
+
     try {
       setUploadStatus("uploading")
       setUploadError("")
 
-      // TODO: replace with your actual upload logic
-      // e.g. upload to IPFS, then mint via your /v1/records/:id/mint endpoint
-      await new Promise((res) => setTimeout(res, 1800)) // simulated delay
+      if (isPdf && uploadPdfUrl) {
+        const formData = new FormData()
+        formData.append("data", selectedFile, selectedFile.name)
+        const res = await fetch(uploadPdfUrl, {
+          method: "POST",
+          body: formData,
+        })
+        if (!res.ok) {
+          const errText = await res.text()
+          throw new Error(errText || `RAG upload failed: ${res.status}`)
+        }
+      } else if (isPdf && !uploadPdfUrl) {
+        throw new Error("RAG upload URL not configured. Set NEXT_PUBLIC_N8N_RAG_UPLOAD_PDF_URL for PDF → embeddings.")
+      } else {
+        // Non-PDF: mock delay (e.g. future IPFS/mint flow)
+        await new Promise((res) => setTimeout(res, 1800))
+      }
 
       setUploadStatus("success")
       setTimeout(() => {
         setShowUploadModal(false)
         setSelectedFile(null)
         setUploadStatus("idle")
+        setUploadError("")
       }, 1500)
-
-      
     } catch (err) {
       setUploadStatus("error")
       setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.")

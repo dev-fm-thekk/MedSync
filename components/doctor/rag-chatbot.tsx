@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { apiConfig } from "@/lib/api-config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -72,16 +73,52 @@ export function RagChatbot({ patientName }: RagChatbotProps) {
     setInput("")
     setIsLoading(true)
 
-    // Simulate RAG processing
-    await new Promise((r) => setTimeout(r, 1200))
+    const webhookUrl = apiConfig.n8nRagWebhookUrl?.trim()
 
-    const response: Message = {
-      id: `bot-${Date.now()}`,
-      role: "assistant",
-      content: getResponse(userMessage.content),
+    if (webhookUrl) {
+      try {
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: userMessage.content }),
+        })
+        if (!res.ok) {
+          const errText = await res.text()
+          throw new Error(errText || `RAG request failed: ${res.status}`)
+        }
+        const data = (await res.json()) as N8nRagResponse
+        const answer =
+          typeof data?.answer === "string" && data.answer.trim()
+            ? data.answer.trim()
+            : "No answer returned from RAG."
+        setMessages((prev) => [
+          ...prev,
+          { id: `bot-${Date.now()}`, role: "assistant", content: answer },
+        ])
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "RAG request failed."
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `bot-${Date.now()}`,
+            role: "assistant",
+            content: `Sorry, the RAG service couldn't answer: ${message}. Here's a fallback based on sample data:\n\n${getResponse(userMessage.content)}`,
+          },
+        ])
+      }
+    } else {
+      // No webhook configured: use mock responses
+      await new Promise((r) => setTimeout(r, 600))
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          role: "assistant",
+          content: getResponse(userMessage.content),
+        },
+      ])
     }
 
-    setMessages((prev) => [...prev, response])
     setIsLoading(false)
   }
 

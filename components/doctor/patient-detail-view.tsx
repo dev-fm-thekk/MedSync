@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react"
 import type { Appointment } from "@/lib/mock-data"
-import { mockDocuments, mockPatientSummary } from "@/lib/mock-data"
+import { mockDocuments, mockPatientSummaries } from "@/lib/mock-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   ShieldCheck,
   FileText,
@@ -17,6 +16,36 @@ import {
   Brain,
 } from "lucide-react"
 import { RagChatbot } from "./rag-chatbot"
+
+/** Renders markdown-like summary text (**headers**, - list items) as React nodes */
+function SummaryContent({ text }: { text: string }) {
+  return (
+    <div className="prose prose-sm max-w-none text-card-foreground/90">
+      {text.split("\n").map((line, i) => {
+        if (line.startsWith("**") && line.endsWith("**")) {
+          return (
+            <h4 key={i} className="mt-4 mb-1 text-sm font-semibold text-card-foreground first:mt-0">
+              {line.replace(/\*\*/g, "")}
+            </h4>
+          )
+        }
+        if (line.startsWith("- ")) {
+          return (
+            <p key={i} className="ml-4 text-sm text-card-foreground/80 leading-relaxed">
+              {line}
+            </p>
+          )
+        }
+        if (line.trim() === "") return null
+        return (
+          <p key={i} className="text-sm text-card-foreground/80 leading-relaxed">
+            {line.replace(/\*\*/g, "")}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
 
 interface PatientDetailViewProps {
   appointment: Appointment
@@ -93,7 +122,7 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
           </Badge>
         </div>
 
-        {/* AI Summary */}
+        {/* AI Summary – mock only (no n8n summarizer) */}
         <Card className="border-border mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
@@ -102,30 +131,9 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-sm max-w-none text-card-foreground/90">
-              {mockPatientSummary.split("\n").map((line, i) => {
-                if (line.startsWith("**") && line.endsWith("**")) {
-                  return (
-                    <h4 key={i} className="mt-4 mb-1 text-sm font-semibold text-card-foreground">
-                      {line.replace(/\*\*/g, "")}
-                    </h4>
-                  )
-                }
-                if (line.startsWith("- ")) {
-                  return (
-                    <p key={i} className="ml-4 text-sm text-card-foreground/80 leading-relaxed">
-                      {line}
-                    </p>
-                  )
-                }
-                if (line.trim() === "") return null
-                return (
-                  <p key={i} className="text-sm text-card-foreground/80 leading-relaxed">
-                    {line.replace(/\*\*/g, "")}
-                  </p>
-                )
-              })}
-            </div>
+            <SummaryContent
+              text={mockPatientSummaries[appointment.patientId] ?? mockPatientSummaries["p1"]}
+            />
           </CardContent>
         </Card>
 
