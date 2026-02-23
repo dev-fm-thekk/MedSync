@@ -68,6 +68,27 @@ export const medicalVaultNftAbi = [
     ],
     outputs: [{ name: "", type: "uint256" }],
   },
+  // ownerOf(uint256 tokenId) view returns (address) — ERC721
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "ownerOf",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
+] as const
+
+// ERC721 Transfer event for fallback when contract doesn't support enumeration
+const transferEventAbi = [
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "tokenId", type: "uint256", indexed: true },
+    ],
+  },
 ] as const
 
 function getEthereumProvider() {
@@ -222,32 +243,80 @@ export async function getTokenUriOnChain(tokenId: bigint) {
 }
 
 /**
- * Get all token IDs owned by an address (patient). Requires contract to implement ERC721Enumerable.
+ * Get all token IDs owned by an address (patient).
+ * Tries ERC721Enumerable first; if the contract doesn't support it (revert), falls back to
+ * querying Transfer events and filtering by current owner.
  */
 export async function getOwnedTokenIds(ownerAddress: Address): Promise<bigint[]> {
   await ensureSepoliaNetwork()
   const { publicClient } = getClients()
 
-  const balance = await publicClient.readContract({
-    address: MEDICAL_VAULT_NFT_ADDRESS,
-    abi: medicalVaultNftAbi,
-    functionName: "balanceOf",
-    args: [ownerAddress],
-  })
-
-  const count = Number(balance)
-  if (count === 0) return []
-
-  const tokenIds: bigint[] = []
-  for (let i = 0; i < count; i++) {
-    const tokenId = await publicClient.readContract({
+  // 1) Try enumeration (works with new contract that has ERC721Enumerable)
+  try {
+    const balance = await publicClient.readContract({
       address: MEDICAL_VAULT_NFT_ADDRESS,
       abi: medicalVaultNftAbi,
-      functionName: "tokenOfOwnerByIndex",
-      args: [ownerAddress, BigInt(i)],
+      functionName: "balanceOf",
+      args: [ownerAddress],
     })
-    tokenIds.push(tokenId as bigint)
+
+    const count = Number(balance)
+    if (count === 0) return []
+
+    const tokenIds: bigint[] = []
+    for (let i = 0; i < count; i++) {
+      const tokenId = await publicClient.readContract({
+        address: MEDICAL_VAULT_NFT_ADDRESS,
+        abi: medicalVaultNftAbi,
+        functionName: "tokenOfOwnerByIndex",
+        args: [ownerAddress, BigInt(i)],
+      })
+      tokenIds.push(tokenId as bigint)
+    }
+    return tokenIds
+  } catch {
+    // 2) Fallback: contract doesn't support tokenOfOwnerByIndex — use Transfer events
+    return getOwnedTokenIdsFromEvents(publicClient, ownerAddress)
   }
-  return tokenIds
+}
+
+/**
+ * Get owned token IDs by scanning Transfer events (for contracts without ERC721Enumerable).
+ */
+async function getOwnedTokenIdsFromEvents(
+  publicClient: ReturnType<typeof createPublicClient>,
+  ownerAddress: Address
+): Promise<bigint[]> {
+  const logs = await publicClient.getLogs({
+    address: MEDICAL_VAULT_NFT_ADDRESS,
+    event: transferEventAbi[0],
+    args: { to: ownerAddress },
+    fromBlock: BigInt(0),
+    toBlock: "latest",
+  })
+
+  const tokenIds = [...new Set(logs.map((log) => (log.args.tokenId as bigint)!))].filter(
+    (id): id is bigint => id != null
+  )
+
+  // Only return tokens still owned by the address (in case of transfers out)
+  const owned: bigint[] = []
+  for (const tokenId of tokenIds) {
+    try {
+      const owner = await publicClient.readContract({
+        address: MEDICAL_VAULT_NFT_ADDRESS,
+        abi: medicalVaultNftAbi,
+        functionName: "ownerOf",
+        args: [tokenId],
+      })
+      if (owner && String(owner).toLowerCase() === String(ownerAddress).toLowerCase()) {
+        owned.push(tokenId)
+      }
+    } catch {
+      // token may be burned or invalid, skip
+    }
+  }
+
+  return owned.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
