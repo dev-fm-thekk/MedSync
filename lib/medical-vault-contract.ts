@@ -2,7 +2,7 @@ import { createPublicClient, createWalletClient, custom, sha256, stringToBytes, 
 import { sepolia } from "viem/chains"
 
 // Sepolia deployment of MedicalVaultNFT
-export const MEDICAL_VAULT_NFT_ADDRESS = "0x29f3C1F07D088d05c0423ffB6c55A15B9dBd97e6" as const
+export const MEDICAL_VAULT_NFT_ADDRESS = "0xc05bB50C090A3F8255a28094301de787afe6e41F" as const
 
 // Minimal ABI for the MedicalVaultNFT contract + ERC721URIStorage pieces we need
 export const medicalVaultNftAbi = [
