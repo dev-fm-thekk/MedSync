@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { getOwnedTokenIds, getTokenUriOnChain } from "@/lib/medical-vault-contract"
+import { getOwnedTokenIdsViaApi } from "@/lib/fetch-nfts"
 import { downloadEncryptedRecord } from "@/lib/upload-medical-record"
 import { decryptFile } from "@/lib/file-encryption"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,7 +40,11 @@ export function DocsView() {
     setRecords([])
 
     try {
-      const tokenIds = await getOwnedTokenIds(walletAddress as Address)
+      // Prefer third-party API (e.g. Alchemy) when configured; fall back to on-chain
+      let tokenIds = await getOwnedTokenIdsViaApi(walletAddress as Address)
+      if (tokenIds === null) {
+        tokenIds = await getOwnedTokenIds(walletAddress as Address)
+      }
       if (tokenIds.length === 0) {
         setLoading(false)
         return
