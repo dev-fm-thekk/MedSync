@@ -14,7 +14,8 @@ import { Heart, LogOut, ArrowLeft, Plus, X, Upload, FileText, Check } from "luci
 type UploadStatus = "idle" | "uploading" | "success" | "error"
 
 export function DoctorDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, walletAddress } = useAuth()
+  const { mintRecord } = useApi()
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -44,6 +45,17 @@ export function DoctorDashboard() {
 
   const handleUpload = async () => {
     if (!selectedFile) return
+    const patientWallet = selectedAppointment?.patientWallet
+    const patientId = selectedAppointment?.patientId
+    if (!patientId || !patientWallet) {
+      setUploadError("Select a patient from the schedule first to upload a file for them.")
+      return
+    }
+    if (!walletAddress) {
+      setUploadError("Connect your wallet to upload and mint the record.")
+      return
+    }
+
     const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf")
     const uploadPdfUrl = apiConfig.n8nRagUploadPdfUrl?.trim()
 
@@ -51,22 +63,35 @@ export function DoctorDashboard() {
       setUploadStatus("uploading")
       setUploadError("")
 
+      // 1) Encrypt file and compute hash (for NFT mint)
+      const { encryptedBlob, fileHash } = await encryptAndHashFile(selectedFile)
+      const recordId = `rec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+      // 2) Upload encrypted file to Supabase
+      const { path: storagePath } = await uploadEncryptedRecord(
+        patientId,
+        recordId,
+        encryptedBlob,
+        selectedFile.name
+      )
+
+      // 3) Mint NFT for patient (backend calls MedicalVaultNFT.mintRecord)
+      await mintRecord(patientWallet, {
+        patientAddress: patientWallet as `0x${string}`,
+        encryptedPayload: storagePath,
+        account: walletAddress as `0x${string}`,
+        metadata: { fileHash },
+      })
+
+      // Optional: also send PDF to RAG for embeddings if configured
       if (isPdf && uploadPdfUrl) {
-        const formData = new FormData()
-        formData.append("data", selectedFile, selectedFile.name)
-        const res = await fetch(uploadPdfUrl, {
-          method: "POST",
-          body: formData,
-        })
-        if (!res.ok) {
-          const errText = await res.text()
-          throw new Error(errText || `RAG upload failed: ${res.status}`)
+        try {
+          const formData = new FormData()
+          formData.append("data", selectedFile, selectedFile.name)
+          await fetch(uploadPdfUrl, { method: "POST", body: formData })
+        } catch {
+          // RAG upload is optional; mint already succeeded
         }
-      } else if (isPdf && !uploadPdfUrl) {
-        throw new Error("RAG upload URL not configured. Set NEXT_PUBLIC_N8N_RAG_UPLOAD_PDF_URL for PDF → embeddings.")
-      } else {
-        // Non-PDF: mock delay (e.g. future IPFS/mint flow)
-        await new Promise((res) => setTimeout(res, 1800))
       }
 
       setUploadStatus("success")
@@ -179,7 +204,7 @@ export function DoctorDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">Upload Medical File</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Encrypted & stored on IPFS</p>
+                <p className="text-xs text-slate-400 mt-0.5">Encrypted & stored in Supabase · NFT minted for patient</p>
               </div>
               <button
                 onClick={closeModal}
@@ -191,6 +216,11 @@ export function DoctorDashboard() {
             </div>
 
             <div className="p-6 space-y-4">
+              {!selectedPatientId && uploadStatus !== "success" && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Select a patient from the schedule first, then upload a file for them. The file will be encrypted and stored; an NFT record will be minted to the patient.
+                </div>
+              )}
               {/* Drop zone */}
               {uploadStatus !== "success" && (
                 <div
@@ -247,7 +277,7 @@ export function DoctorDashboard() {
                     <Check size={26} className="text-emerald-600" />
                   </div>
                   <p className="text-sm font-bold text-slate-800">File uploaded successfully</p>
-                  <p className="text-xs text-slate-400">Encrypted and pinned to IPFS</p>
+                  <p className="text-xs text-slate-400">Encrypted, stored in Supabase, and NFT minted for patient</p>
                 </div>
               )}
 
@@ -270,13 +300,13 @@ export function DoctorDashboard() {
                   </button>
                   <button
                     onClick={handleUpload}
-                    disabled={!selectedFile || uploadStatus === "uploading"}
+                    disabled={!selectedFile || uploadStatus === "uploading" || !selectedPatientId || !walletAddress}
                     className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
-                      background: !selectedFile || uploadStatus === "uploading"
+                      background: !selectedFile || uploadStatus === "uploading" || !selectedPatientId || !walletAddress
                         ? "#94a3b8"
                         : "linear-gradient(135deg, #1d4ed8, #2563eb)",
-                      boxShadow: selectedFile && uploadStatus !== "uploading"
+                      boxShadow: selectedFile && uploadStatus !== "uploading" && selectedPatientId && walletAddress
                         ? "0 4px 14px rgba(37,99,235,0.30)"
                         : "none",
                     }}
