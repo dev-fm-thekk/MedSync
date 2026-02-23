@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { mockAppointments, mockDoctors, type Appointment } from "@/lib/mock-data"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { getAppointmentsByPatient, createAppointment, type Appointment } from "@/supabase/appointments"
+import { getProfilesByRole, type Profile } from "@/supabase/user"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,7 +24,6 @@ import {
   ShieldCheck,
   Loader2,
   CheckCircle2,
-  Star,
 } from "lucide-react"
 
 const statusStyles: Record<string, string> = {
@@ -32,29 +33,65 @@ const statusStyles: Record<string, string> = {
 }
 
 export function AppointmentsView() {
+  const { walletAddress, user } = useAuth()
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([])
+  const [doctors, setDoctors] = useState<Profile[]>([])
+  const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
   const [step, setStep] = useState<"search" | "confirm" | "processing" | "success">("search")
-  const [selectedDoctor, setSelectedDoctor] = useState<(typeof mockDoctors)[0] | null>(null)
+  const [selectedDoctor, setSelectedDoctor] = useState<Profile | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [generatedSlot, setGeneratedSlot] = useState("")
+  const [createError, setCreateError] = useState<string | null>(null)
 
-  const patientAppointments = mockAppointments.filter((a) => a.patientId === "p1")
-  const filteredDoctors = mockDoctors.filter(
-    (d) =>
-      d.available &&
-      (d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.specialty.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    if (!walletAddress) {
+      setPatientAppointments([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    Promise.all([
+      getAppointmentsByPatient(walletAddress),
+      getProfilesByRole("doctor"),
+    ]).then(([appointments, doctorProfiles]) => {
+      setPatientAppointments(appointments)
+      setDoctors(doctorProfiles)
+      setLoading(false)
+    })
+  }, [walletAddress])
+
+  const filteredDoctors = doctors.filter((d) =>
+    (d.full_name ?? d.id).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  function handleSelectDoctor(doc: (typeof mockDoctors)[0]) {
+  function handleSelectDoctor(doc: Profile) {
     setSelectedDoctor(doc)
     setStep("confirm")
   }
 
   async function handleConfirmAccess() {
+    if (!walletAddress || !selectedDoctor) return
     setStep("processing")
-    await new Promise((r) => setTimeout(r, 2000))
-    setGeneratedSlot(`SLT-${Math.floor(1000 + Math.random() * 9000)}`)
+    setCreateError(null)
+    const slot = `SLT-${Math.floor(1000 + Math.random() * 9000)}`
+    const { data, error } = await createAppointment({
+      doctor_id: selectedDoctor.id,
+      patient_id: walletAddress,
+      doctor_name: selectedDoctor.full_name,
+      patient_name: user?.name ?? null,
+      slot_number: slot,
+      appointment_date: new Date().toISOString().slice(0, 10),
+      appointment_time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      status: "confirmed",
+    })
+    if (error) {
+      setCreateError(error)
+      setStep("confirm")
+      return
+    }
+    setGeneratedSlot(slot)
+    if (data) setPatientAppointments((prev) => [data, ...prev])
     setStep("success")
   }
 
@@ -65,6 +102,7 @@ export function AppointmentsView() {
       setSelectedDoctor(null)
       setSearchQuery("")
       setGeneratedSlot("")
+      setCreateError(null)
     }, 200)
   }
 
@@ -83,8 +121,16 @@ export function AppointmentsView() {
         </Button>
       </div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {!loading && patientAppointments.length === 0 && (
+        <p className="text-sm text-muted-foreground py-6">No appointments yet. Book one above.</p>
+      )}
       <div className="flex flex-col gap-3">
-        {patientAppointments.map((apt: Appointment) => (
+        {!loading && patientAppointments.map((apt: Appointment) => (
           <Card key={apt.id} className="border-border">
             <CardContent className="flex items-center gap-4 p-4">
               <Avatar className="h-10 w-10">
@@ -146,6 +192,9 @@ export function AppointmentsView() {
                 />
               </div>
               <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                {filteredDoctors.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-2">No doctors found. Ask your admin to add doctor profiles.</p>
+                )}
                 {filteredDoctors.map((doc) => (
                   <button
                     key={doc.id}
@@ -154,16 +203,12 @@ export function AppointmentsView() {
                   >
                     <Avatar className="h-9 w-9">
                       <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                        {doc.avatar}
+                        {(doc.full_name ?? doc.id).slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-foreground">{doc.name}</div>
-                      <div className="text-xs text-muted-foreground">{doc.specialty}</div>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Star className="h-3 w-3 fill-chart-4 text-chart-4" />
-                      {doc.rating}
+                      <div className="text-sm font-medium text-foreground">{doc.full_name ?? `${doc.id.slice(0, 6)}...${doc.id.slice(-4)}`}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{doc.id.slice(0, 10)}...</div>
                     </div>
                   </button>
                 ))}
@@ -174,22 +219,24 @@ export function AppointmentsView() {
           {step === "confirm" && selectedDoctor && (
             <>
               <DialogHeader>
-                <DialogTitle>Grant Time-Bound Access</DialogTitle>
+                <DialogTitle>Book appointment</DialogTitle>
                 <DialogDescription>
-                  Allow {selectedDoctor.name} to view your medical files for the duration of this
-                  appointment.
+                  Create an appointment with {selectedDoctor.full_name ?? selectedDoctor.id.slice(0, 10) + "..."}.
                 </DialogDescription>
               </DialogHeader>
+              {createError && (
+                <p className="text-sm text-destructive">{createError}</p>
+              )}
               <div className="rounded-lg border border-border bg-secondary/50 p-4">
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary/10 text-primary">
-                      {selectedDoctor.avatar}
+                      {(selectedDoctor.full_name ?? selectedDoctor.id).slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-medium text-foreground">{selectedDoctor.name}</div>
-                    <div className="text-sm text-muted-foreground">{selectedDoctor.specialty}</div>
+                    <div className="font-medium text-foreground">{selectedDoctor.full_name ?? selectedDoctor.id}</div>
+                    <div className="text-sm text-muted-foreground font-mono">{selectedDoctor.id.slice(0, 14)}...</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -205,7 +252,7 @@ export function AppointmentsView() {
                   Cancel
                 </Button>
                 <Button onClick={handleConfirmAccess}>
-                  Confirm & Grant Access
+                  Confirm & Book
                 </Button>
               </div>
             </>
@@ -231,7 +278,7 @@ export function AppointmentsView() {
               <div className="text-center">
                 <p className="text-lg font-semibold text-foreground">Appointment Confirmed</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Access has been granted to {selectedDoctor?.name}
+                  Booked with {selectedDoctor?.full_name ?? selectedDoctor?.id}
                 </p>
               </div>
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-6 py-3">

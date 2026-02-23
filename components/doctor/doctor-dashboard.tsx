@@ -1,21 +1,26 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
+import useApi from "@/hooks/use-api"
 import { apiConfig } from "@/lib/api-config"
-import { mockAppointments } from "@/lib/mock-data"
+import { getAppointmentsByDoctor, type Appointment } from "@/supabase/appointments"
 import { ScheduleView } from "./schedule-view"
 import { PatientDetailView } from "./patient-detail-view"
 import { WalletDetails } from "@/components/wallet-details"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Heart, LogOut, ArrowLeft, Plus, X, Upload, FileText, Check } from "lucide-react"
+import { encryptAndHashFile } from "@/lib/file-encryption"
+import { uploadEncryptedRecord } from "@/lib/upload-medical-record"
 
 type UploadStatus = "idle" | "uploading" | "success" | "error"
 
 export function DoctorDashboard() {
   const { user, logout, walletAddress } = useAuth()
   const { mintRecord } = useApi()
+  const [doctorAppointments, setDoctorAppointments] = useState<Appointment[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -24,7 +29,19 @@ export function DoctorDashboard() {
   const [uploadError, setUploadError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const doctorAppointments = mockAppointments.filter((a) => a.doctorId === "d1")
+  useEffect(() => {
+    if (!walletAddress) {
+      setDoctorAppointments([])
+      setAppointmentsLoading(false)
+      return
+    }
+    setAppointmentsLoading(true)
+    getAppointmentsByDoctor(walletAddress).then((list) => {
+      setDoctorAppointments(list)
+      setAppointmentsLoading(false)
+    })
+  }, [walletAddress])
+
   const selectedAppointment = selectedPatientId
     ? doctorAppointments.find((a) => a.patientId === selectedPatientId)
     : null
@@ -181,6 +198,10 @@ export function DoctorDashboard() {
             appointment={selectedAppointment}
             onBack={() => setSelectedPatientId(null)}
           />
+        ) : appointmentsLoading ? (
+          <div className="flex items-center justify-center p-12">
+            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
         ) : (
           <ScheduleView
             appointments={doctorAppointments}

@@ -27,13 +27,14 @@ export async function upsertProfile(
     const supabase = createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .insert(                          // ✅ was insert — throws on duplicate wallet
+    .upsert(
       {
         id: walletAddress.toLowerCase(),
         full_name: fullName.trim(),
         role,
         updated_at: new Date().toISOString(),
-      },       // if wallet reconnects, update the row
+      },
+      { onConflict: "id" }
     )
     .select()
     .single()
@@ -67,4 +68,20 @@ export async function getProfile(
 
   if (error || !data) return null
   return data as Profile
+}
+
+/** Fetch all profiles with a given role (e.g. "doctor" for booking). */
+export async function getProfilesByRole(role: UserRole): Promise<Profile[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("role", role)
+    .order("full_name", { ascending: true })
+
+  if (error) {
+    console.error("[Supabase] getProfilesByRole:", error.message)
+    return []
+  }
+  return (data ?? []) as Profile[]
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import type { Appointment } from "@/lib/mock-data"
+import type { Appointment } from "@/supabase/appointments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"

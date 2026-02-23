@@ -1,18 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { Appointment } from "@/lib/mock-data"
-import { mockDocuments, mockPatientSummaries } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
+import useApi from "@/hooks/use-api"
+import type { Appointment } from "@/supabase/appointments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import {
   ShieldCheck,
+  Shield,
+  ShieldOff,
   FileText,
-  ImageIcon,
-  FlaskConical,
   Loader2,
-  Eye,
   Brain,
 } from "lucide-react"
 import { RagChatbot } from "./rag-chatbot"
@@ -52,27 +51,19 @@ interface PatientDetailViewProps {
   onBack: () => void
 }
 
-const typeIcon = {
-  pdf: FileText,
-  image: ImageIcon,
-  lab: FlaskConical,
-}
-
 export function PatientDetailView({ appointment }: PatientDetailViewProps) {
   const { walletAddress } = useAuth()
   const { getRecord } = useApi()
   const [permissionState, setPermissionState] = useState<"checking" | "granted" | "denied">(
     "checking"
   )
-  const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
   const [recordAccess, setRecordAccess] = useState<Record<string, { accessActive: boolean; expiry?: number }>>({})
-
-  const patientRecords = mockPatientRecordTokens.filter((r) => r.patientId === appointment.patientId)
+  const [patientRecords, setPatientRecords] = useState<{ tokenId: string; name: string }[]>([])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setPermissionState(appointment.accessGranted ? "granted" : "denied")
-    }, 1500)
+    }, 500)
     return () => clearTimeout(timer)
   }, [appointment.accessGranted])
 
@@ -100,7 +91,7 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
     return () => {
       cancelled = true
     }
-  }, [walletAddress, appointment.patientId, getRecord])
+  }, [walletAddress, patientRecords, getRecord])
 
   if (permissionState === "checking") {
     return (
@@ -163,7 +154,7 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
           </CardHeader>
           <CardContent>
             <SummaryContent
-              text={mockPatientSummaries[appointment.patientId] ?? mockPatientSummaries["p1"]}
+              text="**No AI summary available.**\n\nSummaries can be generated when connected to your RAG pipeline."
             />
           </CardContent>
         </Card>
@@ -213,73 +204,19 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
           </Card>
         )}
 
-        {/* Documents */}
+        {/* Documents - no table in Supabase; show empty state */}
         <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
               <FileText className="h-5 w-5 text-primary" />
               Patient Files
               <Badge variant="secondary" className="ml-auto">
-                {mockDocuments.length} files
+                0 files
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {mockDocuments.map((doc) => {
-              const Icon = typeIcon[doc.type]
-              const isSelected = selectedDoc === doc.id
-              return (
-                <button
-                  key={doc.id}
-                  className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors w-full ${
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-secondary/50"
-                  }`}
-                  onClick={() => setSelectedDoc(isSelected ? null : doc.id)}
-                >
-                  <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{doc.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {doc.category} - {doc.date}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{doc.size}</span>
-                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                </button>
-              )
-            })}
-
-            {selectedDoc && (
-              <>
-                <Separator className="my-2" />
-                <div className="rounded-lg border border-border bg-secondary/30 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Eye className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">
-                      Read-Only Document Viewer
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      View Only
-                    </Badge>
-                  </div>
-                  <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground/30" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {mockDocuments.find((d) => d.id === selectedDoc)?.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Document preview would render here in production
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+          <CardContent>
+            <p className="text-sm text-muted-foreground">No documents stored for this view. Minted records appear under Record NFTs above.</p>
           </CardContent>
         </Card>
       </div>

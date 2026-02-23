@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/supabase/client"
 import { useAuth } from "@/lib/auth-context"
+import { getAccessGrantsByPatient, type AccessGrant } from "@/supabase/access-grants"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -12,54 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ShieldCheck, ShieldOff, ExternalLink, RefreshCw } from "lucide-react"
-
-interface AuditLog {
-  id: string
-  user_id: string
-  log_content: string        // JSON string: { event, doctorName, doctorWallet, filesAccessed }
-  blockchain_txn_hash: string | null
-  created_at: string
-}
-
-interface ParsedLog {
-  id: string
-  event: "access_granted" | "access_revoked" | string
-  doctorName: string
-  doctorWallet: string
-  filesAccessed: number
-  txHash: string | null
-  timestamp: string
-}
-
-function parseLog(log: AuditLog): ParsedLog {
-  let parsed: Record<string, unknown> = {}
-  try {
-    parsed = JSON.parse(log.log_content)
-  } catch {
-    // log_content isn't JSON — treat as plain string event
-    parsed = { event: log.log_content }
-  }
-
-  return {
-    id: log.id,
-    event: (parsed.event as string) ?? "unknown",
-    doctorName: (parsed.doctorName as string) ?? "Unknown",
-    doctorWallet: (parsed.doctorWallet as string) ?? "—",
-    filesAccessed: (parsed.filesAccessed as number) ?? 0,
-    txHash: log.blockchain_txn_hash,
-    timestamp: log.created_at
-      ? new Date(log.created_at).toLocaleString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-          hour: "2-digit", minute: "2-digit",
-        })
-      : "—",
-  }
-}
+import { ShieldCheck, ExternalLink, RefreshCw } from "lucide-react"
 
 export function AuditView() {
   const { user } = useAuth()
-  const [logs, setLogs] = useState<ParsedLog[]>([])
+  const [logs, setLogs] = useState<AccessGrant[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,17 +25,8 @@ export function AuditView() {
     try {
       setIsLoading(true)
       setError(null)
-
-      const supabase = createClient();
-      const { data, error: dbError } = await supabase
-        .from("audit_logs")
-        .select("*")
-        .eq("user_id", user.walletAddress.toLowerCase())
-        .order("created_at", { ascending: false })
-
-      if (dbError) throw new Error(dbError.message)
-
-      setLogs((data as AuditLog[]).map(parseLog))
+      const list = await getAccessGrantsByPatient(user.walletAddress)
+      setLogs(list)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load audit logs.")
     } finally {
@@ -119,9 +67,9 @@ export function AuditView() {
                 <TableHead>Event</TableHead>
                 <TableHead>Doctor</TableHead>
                 <TableHead className="hidden md:table-cell">Wallet</TableHead>
-                <TableHead>Timestamp</TableHead>
+                <TableHead>Token ID</TableHead>
+                <TableHead>Granted at</TableHead>
                 <TableHead className="hidden sm:table-cell">Tx Hash</TableHead>
-                <TableHead className="text-right">Files</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -150,9 +98,9 @@ export function AuditView() {
       {!isLoading && !error && logs.length === 0 && (
         <div className="rounded-lg border border-border py-16 text-center">
           <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No audit events yet</p>
+          <p className="text-sm font-medium text-muted-foreground">No access grants yet</p>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Events will appear here when doctors are granted or revoked access.
+            When you grant a doctor access to a record (on-chain), it will appear here.
           </p>
         </div>
       )}
@@ -166,50 +114,32 @@ export function AuditView() {
                 <TableHead className="text-foreground">Event</TableHead>
                 <TableHead className="text-foreground">Doctor</TableHead>
                 <TableHead className="text-foreground hidden md:table-cell">Wallet</TableHead>
-                <TableHead className="text-foreground">Timestamp</TableHead>
+                <TableHead className="text-foreground">Token ID</TableHead>
+                <TableHead className="text-foreground">Granted at</TableHead>
                 <TableHead className="text-foreground hidden sm:table-cell">Tx Hash</TableHead>
-                <TableHead className="text-foreground text-right">Files</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {logs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-secondary/30">
                   <TableCell>
-                    {log.event === "access_granted" ? (
-                      <Badge variant="outline" className="gap-1 bg-accent/10 text-accent border-accent/20">
-                        <ShieldCheck className="h-3 w-3" />
-                        Granted
-                      </Badge>
-                    ) : log.event === "access_revoked" ? (
-                      <Badge variant="outline" className="gap-1 bg-destructive/10 text-destructive border-destructive/20">
-                        <ShieldOff className="h-3 w-3" />
-                        Revoked
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        {log.event}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="gap-1 bg-accent/10 text-accent border-accent/20">
+                      <ShieldCheck className="h-3 w-3" />
+                      Granted
+                    </Badge>
                   </TableCell>
-
-                  <TableCell className="font-medium text-foreground">
-                    {log.doctorName}
-                  </TableCell>
-
+                  <TableCell className="font-medium text-foreground">{log.doctorName}</TableCell>
                   <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
-                    {log.doctorWallet.length > 20
-                      ? `${log.doctorWallet.slice(0, 6)}...${log.doctorWallet.slice(-4)}`
-                      : log.doctorWallet}
+                    {log.doctorId.length > 20 ? `${log.doctorId.slice(0, 6)}...${log.doctorId.slice(-4)}` : log.doctorId}
                   </TableCell>
-
+                  <TableCell className="text-sm font-mono">{log.tokenId}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {log.timestamp}
+                    {log.createdAt ? new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                   </TableCell>
-
                   <TableCell className="hidden sm:table-cell">
                     {log.txHash ? (
                       <a
-                        href={`https://basescan.org/tx/${log.txHash}`}
+                        href={`https://sepolia.etherscan.io/tx/${log.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
@@ -220,10 +150,6 @@ export function AuditView() {
                     ) : (
                       <span className="text-xs text-muted-foreground/50">—</span>
                     )}
-                  </TableCell>
-
-                  <TableCell className="text-right text-sm text-foreground">
-                    {log.filesAccessed}
                   </TableCell>
                 </TableRow>
               ))}

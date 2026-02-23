@@ -6,27 +6,21 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import useApi from "@/hooks/use-api"
+import { getAccessGrantsByPatient, insertAccessGrant, type AccessGrant } from "@/supabase/access-grants"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Share2, AlertCircle, CheckCircle, Trash2 } from "lucide-react"
-
-interface GrantedAccess {
-  id: string
-  doctorAddress: string
-  expiryDate: string
-  txHash: string
-}
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Share2, AlertCircle, CheckCircle } from "lucide-react"
 
 export function AccessManagement() {
   const { user, walletAddress } = useAuth()
   const { grantAccess, grantAccessState, setPatientSignature } = useApi()
-  
+  const [grantedAccesses, setGrantedAccesses] = useState<AccessGrant[]>([])
   const [showGrantDialog, setShowGrantDialog] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [grantData, setGrantData] = useState({
@@ -35,15 +29,10 @@ export function AccessManagement() {
     durationSeconds: "2592000", // 30 days default
   })
 
-  // Mock data - in production this would come from the blockchain/backend
-  const [grantedAccesses, setGrantedAccesses] = useState<GrantedAccess[]>([
-    {
-      id: "1",
-      doctorAddress: "0x1234...5678",
-      expiryDate: "2024-03-15",
-      txHash: "0xabc123...",
-    },
-  ])
+  useEffect(() => {
+    if (!walletAddress) return
+    getAccessGrantsByPatient(walletAddress).then(setGrantedAccesses)
+  }, [walletAddress])
 
   if (!user || !walletAddress) {
     return (
@@ -65,7 +54,6 @@ export function AccessManagement() {
     }
 
     try {
-      // Store signature for API authentication
       setPatientSignature("doctor-signature-placeholder")
 
       const result = await grantAccess(user.id, {
@@ -75,18 +63,15 @@ export function AccessManagement() {
         durationSeconds: parseInt(grantData.durationSeconds),
       })
 
-      // Add to local list
-      setGrantedAccesses([
-        ...grantedAccesses,
-        {
-          id: String(grantedAccesses.length + 1),
-          doctorAddress: grantData.doctorAddress,
-          expiryDate: new Date(Date.now() + parseInt(grantData.durationSeconds) * 1000)
-            .toISOString()
-            .split("T")[0],
-          txHash: result.txHash,
-        },
-      ])
+      const expiryAt = new Date(Date.now() + parseInt(grantData.durationSeconds) * 1000).toISOString()
+      await insertAccessGrant({
+        token_id: grantData.tokenId,
+        patient_id: walletAddress,
+        doctor_id: grantData.doctorAddress,
+        expiry_at: expiryAt,
+        tx_hash: result.txHash,
+      })
+      getAccessGrantsByPatient(walletAddress).then(setGrantedAccesses)
 
       setShowGrantDialog(false)
       setShowSuccessDialog(true)
@@ -94,10 +79,6 @@ export function AccessManagement() {
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : "Failed to grant access"}`)
     }
-  }
-
-  const handleRevokeAccess = (id: string) => {
-    setGrantedAccesses(grantedAccesses.filter((access) => access.id !== id))
   }
 
   return (
@@ -185,25 +166,18 @@ export function AccessManagement() {
 
         <CardContent>
           {grantedAccesses.length === 0 ? (
-            <p className="text-sm text-gray-600">No active access grants yet.</p>
+            <p className="text-sm text-gray-600">No access grants yet. Grant a doctor access to a record (token ID) above.</p>
           ) : (
             <div className="space-y-2">
               {grantedAccesses.map((access) => (
-                <div
-                  key={access.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
+                <div key={access.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div className="text-sm">
-                    <p className="font-medium">{access.doctorAddress}</p>
-                    <p className="text-gray-600">Expires: {access.expiryDate}</p>
+                    <p className="font-medium">{access.doctorName || `${access.doctorId.slice(0, 10)}...`}</p>
+                    <p className="text-gray-600 font-mono text-xs">Token {access.tokenId}</p>
+                    <p className="text-gray-500 text-xs">
+                      {access.expiryAt ? `Expires: ${new Date(access.expiryAt).toLocaleDateString()}` : "—"}
+                    </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRevokeAccess(access.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
                 </div>
               ))}
             </div>
