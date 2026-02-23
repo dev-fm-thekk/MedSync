@@ -37,3 +37,27 @@ export async function uploadEncryptedRecord(
   // supabase-js v2 returns `data.path`; fall back to our constructed path
   return { path: data?.path ?? path }
 }
+
+const BUCKET_DOWNLOAD = "medical-records"
+
+/**
+ * Downloads an encrypted record from Supabase Storage by path (the CID stored on-chain).
+ * Returns the raw blob; caller should decrypt before use.
+ */
+export async function downloadEncryptedRecord(storagePath: string): Promise<Blob> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET_DOWNLOAD)
+    .download(storagePath)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!data) {
+    throw new Error("No data returned from storage")
+  }
+
+  return data
+}

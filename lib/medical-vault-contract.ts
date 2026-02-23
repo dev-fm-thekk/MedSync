@@ -49,6 +49,25 @@ export const medicalVaultNftAbi = [
     inputs: [{ name: "tokenId", type: "uint256" }],
     outputs: [{ name: "", type: "string" }],
   },
+  // balanceOf(address owner) view returns (uint256) — ERC721
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "balanceOf",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  // tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256) — ERC721Enumerable
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "tokenOfOwnerByIndex",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "index", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const
 
 function getEthereumProvider() {
@@ -200,5 +219,35 @@ export async function getTokenUriOnChain(tokenId: bigint) {
   })
 
   return uri as string
+}
+
+/**
+ * Get all token IDs owned by an address (patient). Requires contract to implement ERC721Enumerable.
+ */
+export async function getOwnedTokenIds(ownerAddress: Address): Promise<bigint[]> {
+  await ensureSepoliaNetwork()
+  const { publicClient } = getClients()
+
+  const balance = await publicClient.readContract({
+    address: MEDICAL_VAULT_NFT_ADDRESS,
+    abi: medicalVaultNftAbi,
+    functionName: "balanceOf",
+    args: [ownerAddress],
+  })
+
+  const count = Number(balance)
+  if (count === 0) return []
+
+  const tokenIds: bigint[] = []
+  for (let i = 0; i < count; i++) {
+    const tokenId = await publicClient.readContract({
+      address: MEDICAL_VAULT_NFT_ADDRESS,
+      abi: medicalVaultNftAbi,
+      functionName: "tokenOfOwnerByIndex",
+      args: [ownerAddress, BigInt(i)],
+    })
+    tokenIds.push(tokenId as bigint)
+  }
+  return tokenIds
 }
 

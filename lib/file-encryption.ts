@@ -25,3 +25,14 @@ export async function encryptAndHashFile(file: File): Promise<{
   
     return { encryptedBlob, fileHash }
   }
+
+/**
+ * Decrypts a blob that was previously encrypted with encryptAndHashFile.
+ * Current implementation is a no-op (passthrough); replace with real decryption when needed.
+ */
+export async function decryptFile(encryptedBlob: Blob): Promise<Blob> {
+  const arrayBuffer = await encryptedBlob.arrayBuffer()
+  const bytes = new Uint8Array(arrayBuffer)
+  // No-op: in a real setup you would decrypt here
+  return new Blob([bytes], { type: encryptedBlob.type || "application/octet-stream" })
+}
