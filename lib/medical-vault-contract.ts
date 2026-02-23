@@ -60,12 +60,52 @@ function getEthereumProvider() {
 
 async function ensureSepoliaNetwork() {
   const provider = getEthereumProvider()
-  const chainIdHex = (await provider.request({ method: "eth_chainId" })) as string
+  const expectedHex = `0x${sepolia.id.toString(16)}` // 0xaa36a7
 
-  // Sepolia chain id in hex (0xaa36a7)
-  const expectedHex = `0x${sepolia.id.toString(16)}`
+  let chainIdHex = (await provider.request({ method: "eth_chainId" })) as string
+
+  if (chainIdHex.toLowerCase() === expectedHex.toLowerCase()) {
+    return
+  }
+
+  // Try to switch the wallet to Sepolia
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: expectedHex }],
+    })
+  } catch (switchError) {
+    // If Sepolia is not added, try adding it
+    try {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: expectedHex,
+            chainName: "Sepolia Test Network",
+            nativeCurrency: {
+              name: "Sepolia ETH",
+              symbol: "ETH",
+              decimals: 18,
+            },
+            rpcUrls: ["https://sepolia.infura.io/v3/"], // user can override via wallet
+            blockExplorerUrls: ["https://sepolia.etherscan.io"],
+          },
+        ],
+      })
+    } catch {
+      throw new Error(
+        "Please switch your wallet to the Sepolia test network (chain id 11155111) and try again.",
+      )
+    }
+  }
+
+  // Verify we are now on Sepolia
+  chainIdHex = (await provider.request({ method: "eth_chainId" })) as string
   if (chainIdHex.toLowerCase() !== expectedHex.toLowerCase()) {
-    throw new Error("Please switch your wallet to the Sepolia test network to perform this action.")
+    throw new Error(
+      "Please switch your wallet to the Sepolia test network (chain id 11155111) and try again.",
+    )
   }
 }
 
