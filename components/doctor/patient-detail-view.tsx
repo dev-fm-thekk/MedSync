@@ -59,10 +59,15 @@ const typeIcon = {
 }
 
 export function PatientDetailView({ appointment }: PatientDetailViewProps) {
+  const { walletAddress } = useAuth()
+  const { getRecord } = useApi()
   const [permissionState, setPermissionState] = useState<"checking" | "granted" | "denied">(
     "checking"
   )
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
+  const [recordAccess, setRecordAccess] = useState<Record<string, { accessActive: boolean; expiry?: number }>>({})
+
+  const patientRecords = mockPatientRecordTokens.filter((r) => r.patientId === appointment.patientId)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -70,6 +75,32 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
     }, 1500)
     return () => clearTimeout(timer)
   }, [appointment.accessGranted])
+
+  useEffect(() => {
+    if (!walletAddress || patientRecords.length === 0) return
+    let cancelled = false
+    Promise.all(
+      patientRecords.map((rec) =>
+        getRecord(rec.tokenId, walletAddress)
+          .then((res) => ({ tokenId: rec.tokenId, accessActive: res.accessActive }))
+          .catch(() => ({ tokenId: rec.tokenId, accessActive: false }))
+      )
+    ).then((results) => {
+      if (cancelled) return
+      setRecordAccess(
+        results.reduce<Record<string, { accessActive: boolean }>>(
+          (acc, { tokenId, accessActive }) => {
+            acc[tokenId] = { accessActive }
+            return acc
+          },
+          {}
+        )
+      )
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [walletAddress, appointment.patientId, getRecord])
 
   if (permissionState === "checking") {
     return (
@@ -136,6 +167,51 @@ export function PatientDetailView({ appointment }: PatientDetailViewProps) {
             />
           </CardContent>
         </Card>
+
+        {/* Record NFTs & access */}
+        {patientRecords.length > 0 && (
+          <Card className="border-border mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg text-card-foreground">
+                <Shield className="h-5 w-5 text-primary" />
+                Record NFTs
+                <Badge variant="secondary" className="ml-auto">
+                  {patientRecords.length} record(s)
+                </Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your access to each record is checked on-chain (MedicalVault NFT).
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {patientRecords.map((rec) => {
+                const access = recordAccess[rec.tokenId]
+                const hasAccess = access?.accessActive === true
+                return (
+                  <div
+                    key={rec.tokenId}
+                    className="flex items-center gap-3 rounded-lg border border-border p-3"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                      {hasAccess ? (
+                        <Shield className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{rec.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono">Token ID: {rec.tokenId}</p>
+                    </div>
+                    <Badge variant={hasAccess ? "default" : "secondary"} className="shrink-0">
+                      {access === undefined ? "Checking…" : hasAccess ? "You have access" : "No access"}
+                    </Badge>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Documents */}
         <Card className="border-border">

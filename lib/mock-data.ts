@@ -50,15 +50,29 @@ export const mockDocuments: MedicalDocument[] = [
   { id: "doc8", name: "Allergy Panel Results", type: "lab", date: "2026-02-10", size: "310 KB", category: "Lab Results" },
 ]
 
+/** Demo patient wallet addresses (for minting NFT to patient) */
+const PATIENT_WALLETS: Record<string, string> = {
+  p1: "0x1111111111111111111111111111111111111111",
+  p2: "0x2222222222222222222222222222222222222222",
+  p3: "0x3333333333333333333333333333333333333333",
+}
+
 /** Mock appointments for testing patient dashboard and doctor schedule */
 export const mockAppointments: Appointment[] = [
-  { id: "apt1", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p1", patientName: "Alice Johnson", date: "2026-02-25", time: "09:00 AM", status: "confirmed", slotNumber: "SLT-4821", accessGranted: true },
-  { id: "apt2", doctorId: "d2", doctorName: "Dr. Sarah Williams", patientId: "p1", patientName: "Alice Johnson", date: "2026-02-28", time: "02:30 PM", status: "pending", slotNumber: "SLT-4822", accessGranted: false },
-  { id: "apt3", doctorId: "d3", doctorName: "Dr. James Rodriguez", patientId: "p1", patientName: "Alice Johnson", date: "2026-02-20", time: "11:00 AM", status: "completed", slotNumber: "SLT-4819", accessGranted: true },
-  { id: "apt4", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p2", patientName: "Bob Smith", date: "2026-02-25", time: "10:30 AM", status: "confirmed", slotNumber: "SLT-4823", accessGranted: true },
-  { id: "apt5", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p3", patientName: "Clara Davis", date: "2026-02-26", time: "01:00 PM", status: "confirmed", slotNumber: "SLT-4824", accessGranted: true },
-  { id: "apt6", doctorId: "d4", doctorName: "Dr. Emily Park", patientId: "p1", patientName: "Alice Johnson", date: "2026-03-02", time: "03:00 PM", status: "pending", slotNumber: "SLT-4825", accessGranted: false },
-  { id: "apt7", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p1", patientName: "Alice Johnson", date: "2026-02-10", time: "09:30 AM", status: "completed", slotNumber: "SLT-4815", accessGranted: true },
+  { id: "apt1", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p1", patientName: "Alice Johnson", patientWallet: PATIENT_WALLETS.p1, date: "2026-02-25", time: "09:00 AM", status: "confirmed", slotNumber: "SLT-4821", accessGranted: true },
+  { id: "apt2", doctorId: "d2", doctorName: "Dr. Sarah Williams", patientId: "p1", patientName: "Alice Johnson", patientWallet: PATIENT_WALLETS.p1, date: "2026-02-28", time: "02:30 PM", status: "pending", slotNumber: "SLT-4822", accessGranted: false },
+  { id: "apt3", doctorId: "d3", doctorName: "Dr. James Rodriguez", patientId: "p1", patientName: "Alice Johnson", patientWallet: PATIENT_WALLETS.p1, date: "2026-02-20", time: "11:00 AM", status: "completed", slotNumber: "SLT-4819", accessGranted: true },
+  { id: "apt4", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p2", patientName: "Bob Smith", patientWallet: PATIENT_WALLETS.p2, date: "2026-02-25", time: "10:30 AM", status: "confirmed", slotNumber: "SLT-4823", accessGranted: true },
+  { id: "apt5", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p3", patientName: "Clara Davis", patientWallet: PATIENT_WALLETS.p3, date: "2026-02-26", time: "01:00 PM", status: "confirmed", slotNumber: "SLT-4824", accessGranted: true },
+  { id: "apt6", doctorId: "d4", doctorName: "Dr. Emily Park", patientId: "p1", patientName: "Alice Johnson", patientWallet: PATIENT_WALLETS.p1, date: "2026-03-02", time: "03:00 PM", status: "pending", slotNumber: "SLT-4825", accessGranted: false },
+  { id: "apt7", doctorId: "d1", doctorName: "Dr. Michael Chen", patientId: "p1", patientName: "Alice Johnson", patientWallet: PATIENT_WALLETS.p1, date: "2026-02-10", time: "09:30 AM", status: "completed", slotNumber: "SLT-4815", accessGranted: true },
+]
+
+/** Mock NFT record tokens per patient (tokenId from chain). Add entries when doctor mints. */
+export const mockPatientRecordTokens: PatientRecordToken[] = [
+  { tokenId: "1", patientId: "p1", name: "Blood Test Results - Feb 2026", createdAt: "2026-02-15" },
+  { tokenId: "2", patientId: "p1", name: "Chest X-Ray Report", createdAt: "2026-01-20" },
+  { tokenId: "3", patientId: "p2", name: "Annual Physical Exam", createdAt: "2025-12-10" },
 ]
 
 /** Mock audit trail for access management testing */
