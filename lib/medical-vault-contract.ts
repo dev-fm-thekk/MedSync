@@ -58,6 +58,17 @@ function getEthereumProvider() {
   return window.ethereum
 }
 
+async function ensureSepoliaNetwork() {
+  const provider = getEthereumProvider()
+  const chainIdHex = (await provider.request({ method: "eth_chainId" })) as string
+
+  // Sepolia chain id in hex (0xaa36a7)
+  const expectedHex = `0x${sepolia.id.toString(16)}`
+  if (chainIdHex.toLowerCase() !== expectedHex.toLowerCase()) {
+    throw new Error("Please switch your wallet to the Sepolia test network to perform this action.")
+  }
+}
+
 function getClients() {
   const transport = custom(getEthereumProvider())
 
@@ -79,6 +90,7 @@ export async function mintRecordOnChain(params: {
   cid: string
   account: Address
 }) {
+  await ensureSepoliaNetwork()
   const { publicClient, walletClient } = getClients()
 
   // Derive a deterministic SHA-256 hash from the CID/encrypted payload
@@ -103,6 +115,7 @@ export async function grantViewerRoleOnChain(params: {
   durationSeconds: bigint
   account: Address
 }) {
+  await ensureSepoliaNetwork()
   const { publicClient, walletClient } = getClients()
 
   const hash = await walletClient.writeContract({
@@ -122,6 +135,7 @@ export async function hasAccessOnChain(params: {
   tokenId: bigint
   doctorAddress: Address
 }) {
+  await ensureSepoliaNetwork()
   const { publicClient } = getClients()
 
   const accessActive = await publicClient.readContract({
@@ -135,6 +149,7 @@ export async function hasAccessOnChain(params: {
 }
 
 export async function getTokenUriOnChain(tokenId: bigint) {
+  await ensureSepoliaNetwork()
   const { publicClient } = getClients()
 
   const uri = await publicClient.readContract({
